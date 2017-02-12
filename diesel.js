@@ -2,17 +2,22 @@ var spawn = require('child_process').spawn;
 var EventEmitter = require('events').EventEmitter;
 var P = require('bluebird');
 var join = require('path').join;
+var _ = require('lodash');
 var eventHandler = require('./lib/events');
 var __defaults = {}
 var __electron = 'electron';
 var __path = join(__dirname, './lib/bootstrap.js');
 
 module.exports = Driver;
+var __defaults = {
+	show: true,
+	xhrSniffer: false
+}
 
 function Driver( options ){
 	if(!(this instanceof Driver)) return new Driver( options );
 	EventEmitter.call( this );
-	this._options = options || __defaults;
+	this._options = _.extend({}, __defaults, options);
 	this._steps = [];
 	this._steps.push(() => {
 		return new P(( resolve, reject ) => {
@@ -20,6 +25,7 @@ function Driver( options ){
 			this._resolve = resolve;
 			this._child = spawn( __electron, [ __path ] );
 			this._child.stdout.on( 'data', eventHandler.bind( this ) );
+			this._child.stdin.write( __sendMessage( 'ready', this._options ));
 		});
 	});
 	return this;
@@ -47,6 +53,52 @@ Driver.prototype.goto = function(url){
 			this._awaitType = 'goto';
 			this._resolve = resolve;
 			this._child.stdin.write( __sendMessage( this._awaitType, url ));
+		});
+	})
+	return this;	
+}
+
+Driver.prototype.wait = function( time ){
+	this._steps.push(() => {
+		return new P( resolve => {
+			setTimeout(function(){
+				resolve();
+			}, time);
+		});
+	})
+	return this;	
+}
+
+Driver.prototype.waitFor = function( fn ){
+	this._steps.push(() => {
+		return new P(( resolve, reject ) => {
+			this._awaitType = 'waitfor';
+			this._resolve = resolve;
+			fn = typeof fn === 'function' ? __parseFn( fn ) : fn;
+			this._child.stdin.write( __sendMessage( this._awaitType, fn ));
+		});
+	})
+	return this;	
+}
+
+Driver.prototype.click = function( el ){
+	this._steps.push(() => {
+		return new P(( resolve, reject ) => {
+			this._awaitType = 'click';
+			this._resolve = resolve;
+			this._child.stdin.write( __sendMessage( this._awaitType, el ));
+		});
+	})
+	return this;
+}
+
+Driver.prototype.waitUntil = function( fn ){
+	this._steps.push(() => {
+		return new P(( resolve, reject ) => {
+			this._awaitType = 'waituntil';
+			this._resolve = resolve;
+			fn = typeof fn === 'function' ? __parseFn( fn ) : fn;
+			this._child.stdin.write( __sendMessage( this._awaitType, fn ));
 		});
 	})
 	return this;	
