@@ -4,6 +4,7 @@ var P = require('bluebird');
 var join = require('path').join;
 var _ = require('lodash');
 var eventHandler = require('./lib/events');
+//var IPC = require('./lib/IPC');
 var __defaults = {}
 var __electron = 'electron';
 var __path = join(__dirname, './lib/bootstrap.js');
